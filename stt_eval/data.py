@@ -10,6 +10,7 @@ Noise conditions need no external corpus:
 Optionally point --musan-dir at an unpacked MUSAN noise/ folder for real noise.
 """
 
+import io
 import json
 import random
 from pathlib import Path
@@ -18,6 +19,24 @@ import numpy as np
 import soundfile as sf
 
 SR = 16000
+
+
+def _decode_audio(audio_field: dict) -> tuple[np.ndarray, int]:
+    """Decode a datasets Audio(decode=False) field ({"bytes", "path"}) ourselves,
+    avoiding the torchcodec dependency that datasets>=4 requires for decoding."""
+    src = audio_field.get("bytes") or audio_field.get("path")
+    if isinstance(src, bytes):
+        src = io.BytesIO(src)
+    try:
+        data, sr = sf.read(src, dtype="float32")
+    except Exception:
+        import librosa
+
+        if isinstance(src, io.BytesIO):
+            src.seek(0)
+        data, sr = librosa.load(src, sr=None, mono=False)
+        data = data.T
+    return data, sr
 
 
 def _to_mono16k(audio: np.ndarray, sr: int) -> np.ndarray:
@@ -69,7 +88,7 @@ def make_noise(kind: str, n: int, pool: list[np.ndarray], rng: random.Random,
 
 def prepare(langs: list[str], n_per_lang: int, conditions: list[str],
             out_dir: Path, musan_dir: Path | None, seed: int = 17) -> Path:
-    from datasets import load_dataset
+    from datasets import Audio, load_dataset
 
     from .langs import lang_info
 
@@ -82,7 +101,8 @@ def prepare(langs: list[str], n_per_lang: int, conditions: list[str],
     for lang in langs:
         info = lang_info(lang)
         print(f"[data] loading FLEURS {info['fleurs']} test split ...")
-        ds = load_dataset("google/fleurs", info["fleurs"], split="test", trust_remote_code=True)
+        ds = load_dataset("google/fleurs", info["fleurs"], split="test")
+        ds = ds.cast_column("audio", Audio(decode=False))
         idxs = list(range(len(ds)))
         rng.shuffle(idxs)
         idxs = idxs[:n_per_lang]
@@ -90,7 +110,8 @@ def prepare(langs: list[str], n_per_lang: int, conditions: list[str],
         clips = []
         for i in idxs:
             ex = ds[i]
-            audio = _to_mono16k(ex["audio"]["array"], ex["audio"]["sampling_rate"])
+            raw, sr = _decode_audio(ex["audio"])
+            audio = _to_mono16k(raw, sr)
             clips.append((f"{lang}_{i}", audio, ex["transcription"]))
         pool = [c[1] for c in clips]
 
