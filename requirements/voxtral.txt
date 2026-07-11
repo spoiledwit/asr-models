@@ -1,0 +1,7 @@
+# Voxtral Realtime (transformers offline mode) + ARK-ASR share this venv
+-r base.txt
+torch
+transformers>=4.57   # needs VoxtralRealtimeForConditionalGeneration
+mistral-common[audio]
+accelerate
+soxr

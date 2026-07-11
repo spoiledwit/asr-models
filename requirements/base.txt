@@ -1,0 +1,8 @@
+# Shared deps: data prep, metrics, reporting (needed in every venv)
+datasets>=3.0
+soundfile
+librosa
+numpy
+jiwer
+transformers>=4.50   # for BasicTextNormalizer; stacks may pin newer
+huggingface_hub
