@@ -33,9 +33,11 @@ def transcribe(handle, items: list[dict]) -> list[str]:
         arr = np.concatenate([arr, np.zeros(int(sr * 2.0), dtype=arr.dtype)])
         inputs = processor(arr, return_tensors="pt")
         inputs = inputs.to(model.device, dtype=model.dtype)
-        # Greedy decoding (Mistral recommends temperature 0.0) with an explicit
-        # cap — the default max_length truncates transcripts.
-        outputs = model.generate(**inputs, max_new_tokens=1024, do_sample=False)
+        # Greedy decoding (Mistral recommends temperature 0.0). No max_new_tokens:
+        # this realtime model derives its token budget from the audio length
+        # (1 token per 80ms frame) — overriding it forces generation past the
+        # end of the audio, producing garbage at a crawl.
+        outputs = model.generate(**inputs, do_sample=False)
         return processor.batch_decode(outputs, skip_special_tokens=True)[0].strip()
 
     texts = []
