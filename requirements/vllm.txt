@@ -1,4 +1,10 @@
 # Server-side venv for models served through vLLM (Voxtral Realtime).
 # The eval client does NOT run in this venv — it only spawns `.venvs/vllm/bin/vllm serve`.
+#
+# NOTE: plain `pip install vllm` ships torch built for the newest CUDA and dies at
+# startup with "NVIDIA driver ... too old" on pods with older drivers. If that hits,
+# reinstall matched to the pod's driver (check `nvidia-smi` CUDA version):
+#   .venvs/vllm/bin/pip install uv
+#   .venvs/vllm/bin/uv pip install -U vllm --torch-backend=cu128 --python .venvs/vllm/bin/python
 vllm
 mistral-common[audio]>=1.9.0
