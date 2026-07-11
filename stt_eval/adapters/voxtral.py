@@ -25,20 +25,25 @@ def transcribe(handle, items: list[dict]) -> list[str]:
 
     processor, model = handle
     sr = processor.feature_extractor.sampling_rate
+    chunk_samples = int(sr * 25.0)  # long clips come back empty in one pass
+
+    def _generate(arr):
+        # Trailing silence flushes the realtime model's delayed text output,
+        # so the last words of the clip are actually emitted.
+        arr = np.concatenate([arr, np.zeros(int(sr * 2.0), dtype=arr.dtype)])
+        inputs = processor(arr, return_tensors="pt")
+        inputs = inputs.to(model.device, dtype=model.dtype)
+        # Greedy decoding (Mistral recommends temperature 0.0) with an explicit
+        # cap — the default max_length truncates transcripts.
+        outputs = model.generate(**inputs, max_new_tokens=1024, do_sample=False)
+        return processor.batch_decode(outputs, skip_special_tokens=True)[0].strip()
+
     texts = []
     for item in items:
         audio = Audio.from_file(item["audio_path"], strict=False)
         audio.resample(sr)
-        # Trailing silence flushes the realtime model's delayed text output,
-        # so the last words of the clip are actually emitted.
-        arr = np.concatenate([audio.audio_array,
-                              np.zeros(int(sr * 2.0), dtype=audio.audio_array.dtype)])
-        inputs = processor(arr, return_tensors="pt")
-        inputs = inputs.to(model.device, dtype=model.dtype)
-        # Greedy decoding (Mistral recommends temperature 0.0) — the default
-        # sampling config can emit an immediate EOS -> empty transcript.
-        # Explicit max_new_tokens: the default max_length truncates transcripts.
-        outputs = model.generate(**inputs, max_new_tokens=1024, do_sample=False)
-        decoded = processor.batch_decode(outputs, skip_special_tokens=True)
-        texts.append(decoded[0].strip())
+        arr = audio.audio_array
+        parts = [_generate(arr[i : i + chunk_samples])
+                 for i in range(0, len(arr), chunk_samples)]
+        texts.append(" ".join(p for p in parts if p).strip())
     return texts
