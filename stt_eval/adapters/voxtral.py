@@ -29,7 +29,9 @@ def transcribe(handle, items: list[dict]) -> list[str]:
         audio.resample(processor.feature_extractor.sampling_rate)
         inputs = processor(audio.audio_array, return_tensors="pt")
         inputs = inputs.to(model.device, dtype=model.dtype)
-        outputs = model.generate(**inputs)
+        # Explicit cap: the default max_length truncates longer transcripts,
+        # which silently inflates WER via deletions. EOS still stops early.
+        outputs = model.generate(**inputs, max_new_tokens=1024)
         decoded = processor.batch_decode(outputs, skip_special_tokens=True)
         texts.append(decoded[0].strip())
     return texts
