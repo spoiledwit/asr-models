@@ -20,18 +20,25 @@ def load(model_id: str):
 
 
 def transcribe(handle, items: list[dict]) -> list[str]:
+    import numpy as np
     from mistral_common.tokens.tokenizers.audio import Audio
 
     processor, model = handle
+    sr = processor.feature_extractor.sampling_rate
     texts = []
     for item in items:
         audio = Audio.from_file(item["audio_path"], strict=False)
-        audio.resample(processor.feature_extractor.sampling_rate)
-        inputs = processor(audio.audio_array, return_tensors="pt")
+        audio.resample(sr)
+        # Trailing silence flushes the realtime model's delayed text output,
+        # so the last words of the clip are actually emitted.
+        arr = np.concatenate([audio.audio_array,
+                              np.zeros(int(sr * 2.0), dtype=audio.audio_array.dtype)])
+        inputs = processor(arr, return_tensors="pt")
         inputs = inputs.to(model.device, dtype=model.dtype)
-        # Explicit cap: the default max_length truncates longer transcripts,
-        # which silently inflates WER via deletions. EOS still stops early.
-        outputs = model.generate(**inputs, max_new_tokens=1024)
+        # Greedy decoding (Mistral recommends temperature 0.0) — the default
+        # sampling config can emit an immediate EOS -> empty transcript.
+        # Explicit max_new_tokens: the default max_length truncates transcripts.
+        outputs = model.generate(**inputs, max_new_tokens=1024, do_sample=False)
         decoded = processor.batch_decode(outputs, skip_special_tokens=True)
         texts.append(decoded[0].strip())
     return texts
