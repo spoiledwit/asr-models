@@ -50,22 +50,50 @@ def main():
     if not items:
         sys.exit("[eval] nothing to evaluate after filtering")
 
-    print(f"[eval] loading {args.model} ({model_id}) ...")
-    handle = adapter.load(model_id)
+    # Resume support: completed utterances are checkpointed per batch, so a
+    # killed run (lost connection, OOM, preempted pod) picks up where it left off.
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(exist_ok=True)
+    ckpt_path = out_dir / f"{args.model}.partial.jsonl"
+    done_map = {}
+    if ckpt_path.exists():
+        for line in open(ckpt_path):
+            rec = json.loads(line)
+            done_map[rec["key"]] = rec
 
-    # Warmup (excluded from timing) so model compile/caches don't skew RTFx.
-    adapter.transcribe(handle, items[:1])
+    keys = [f'{it["id"]}|{it["condition"]}' for it in items]
+    hyps = [done_map[k]["hyp"] if k in done_map else None for k in keys]
+    t_total = sum(done_map[k]["t"] for k in keys if k in done_map)
+    pending = [i for i, h in enumerate(hyps) if h is None]
+    if len(pending) < len(items):
+        print(f"[eval] resuming: {len(items) - len(pending)}/{len(items)} already done ({ckpt_path})")
+    if not pending:
+        print("[eval] all utterances already transcribed, writing results")
 
-    print(f"[eval] transcribing {len(items)} utterances ...")
-    hyps, t_total = [], 0.0
-    for i in range(0, len(items), BATCH):
-        batch = items[i : i + BATCH]
-        t0 = time.perf_counter()
-        hyps.extend(adapter.transcribe(handle, batch))
-        t_total += time.perf_counter() - t0
-        done = min(i + BATCH, len(items))
-        print(f"\r[eval] {done}/{len(items)}", end="", flush=True)
-    print()
+    if pending:
+        print(f"[eval] loading {args.model} ({model_id}) ...")
+        handle = adapter.load(model_id)
+
+        # Warmup (excluded from timing) so model compile/caches don't skew RTFx.
+        adapter.transcribe(handle, [items[pending[0]]])
+
+        print(f"[eval] transcribing {len(pending)} utterances ...")
+        with open(ckpt_path, "a") as ckpt:
+            for i in range(0, len(pending), BATCH):
+                idxs = pending[i : i + BATCH]
+                batch = [items[j] for j in idxs]
+                t0 = time.perf_counter()
+                out = adapter.transcribe(handle, batch)
+                dt = time.perf_counter() - t0
+                t_total += dt
+                for j, hyp in zip(idxs, out):
+                    hyps[j] = hyp
+                    ckpt.write(json.dumps({"key": keys[j], "hyp": hyp, "t": dt / len(batch)},
+                                          ensure_ascii=False) + "\n")
+                ckpt.flush()
+                print(f"\r[eval] {len(items) - len(pending) + min(i + BATCH, len(pending))}/{len(items)}",
+                      end="", flush=True)
+        print()
 
     audio_sec = sum(i["duration"] for i in items)
     rtfx = audio_sec / t_total if t_total else 0.0
@@ -85,8 +113,6 @@ def main():
                 "n": len(idx),
             }
 
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(exist_ok=True)
     out_path = out_dir / f"{args.model}.json"
     with open(out_path, "w") as f:
         json.dump({
@@ -107,6 +133,7 @@ def main():
     for key, s in summary.items():
         print(f"[eval] {key}: {s['metric']} {s['value']}%  (n={s['n']})")
     print(f"[eval] wrote {out_path}")
+    ckpt_path.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
