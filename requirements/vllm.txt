@@ -1,0 +1,4 @@
+# Server-side venv for models served through vLLM (Voxtral Realtime).
+# The eval client does NOT run in this venv — it only spawns `.venvs/vllm/bin/vllm serve`.
+vllm
+mistral-common[audio]>=1.9.0

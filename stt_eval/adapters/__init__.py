@@ -14,7 +14,8 @@ MODELS = {
     "whisper-large-v3-turbo": ("whisper_fw", "large-v3-turbo",                         "whisper"),
     "qwen3-asr-0.6b":         ("qwen3_asr",  "Qwen/Qwen3-ASR-0.6B",                    "qwen"),
     "qwen3-asr-1.7b":         ("qwen3_asr",  "Qwen/Qwen3-ASR-1.7B",                    "qwen"),
-    "voxtral-mini-realtime":  ("voxtral",    "mistralai/Voxtral-Mini-4B-Realtime-2602", "voxtral"),
+    # served via vLLM (spawned from .venvs/vllm); client runs from the whisper venv
+    "voxtral-mini-realtime":  ("voxtral_vllm", "mistralai/Voxtral-Mini-4B-Realtime-2602", "whisper"),
     "canary-1b-v2":           ("nemo_asr",   "nvidia/canary-1b-v2",                    "nemo"),
     "parakeet-tdt-0.6b-v3":   ("nemo_asr",   "nvidia/parakeet-tdt-0.6b-v3",            "nemo"),
     "ark-asr-3b":             ("ark_asr",    "AutoArk-AI/ARK-ASR-3B",                  "voxtral"),

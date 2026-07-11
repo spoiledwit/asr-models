@@ -7,8 +7,8 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-STACKS=("${@:-whisper qwen voxtral nemo}")
-[ $# -eq 0 ] && STACKS=(whisper qwen voxtral nemo)
+STACKS=("${@:-whisper qwen voxtral nemo vllm}")
+[ $# -eq 0 ] && STACKS=(whisper qwen voxtral nemo vllm)
 
 for stack in "${STACKS[@]}"; do
   echo "=== setting up .venvs/$stack ==="

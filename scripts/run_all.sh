@@ -9,7 +9,7 @@ echo "[queue] waiting for any in-flight eval to finish ..."
 while pgrep -f "scripts/run_eval.py" > /dev/null; do sleep 30; done
 
 RUNS=(
-  "voxtral voxtral-mini-realtime"
+  "whisper voxtral-mini-realtime"
   "voxtral ark-asr-3b"
   "nemo    canary-1b-v2"
   "nemo    parakeet-tdt-0.6b-v3"

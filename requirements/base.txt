@@ -6,3 +6,4 @@ numpy
 jiwer
 transformers>=4.50   # for BasicTextNormalizer; stacks may pin newer
 huggingface_hub
+websockets>=12   # realtime websocket client (vLLM-served models)
