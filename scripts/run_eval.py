@@ -10,7 +10,10 @@ import argparse
 import json
 import sys
 import time
+import warnings
 from pathlib import Path
+
+warnings.filterwarnings("ignore", category=UserWarning, module="transformers")
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -28,7 +31,11 @@ def main():
     p.add_argument("--langs", default=None, help="restrict to comma-separated langs")
     p.add_argument("--conditions", default=None, help="restrict to comma-separated conditions")
     p.add_argument("--out-dir", default="results")
+    p.add_argument("--tag", default=None,
+                   help="suffix for output/checkpoint filenames, so several processes "
+                        "can eval the same model on different --langs in parallel")
     args = p.parse_args()
+    stem = f"{args.model}.{args.tag}" if args.tag else args.model
 
     items = [json.loads(l) for l in open(args.manifest)]
     if args.langs:
@@ -54,7 +61,7 @@ def main():
     # killed run (lost connection, OOM, preempted pod) picks up where it left off.
     out_dir = Path(args.out_dir)
     out_dir.mkdir(exist_ok=True)
-    ckpt_path = out_dir / f"{args.model}.partial.jsonl"
+    ckpt_path = out_dir / f"{stem}.partial.jsonl"
     done_map = {}
     if ckpt_path.exists():
         for line in open(ckpt_path):
@@ -113,7 +120,7 @@ def main():
                 "n": len(idx),
             }
 
-    out_path = out_dir / f"{args.model}.json"
+    out_path = out_dir / f"{stem}.json"
     with open(out_path, "w") as f:
         json.dump({
             "model": args.model,
