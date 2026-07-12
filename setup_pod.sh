@@ -7,6 +7,9 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# system deps: ffmpeg shared libs (torchcodec), build tools
+command -v ffmpeg >/dev/null || (apt-get update && apt-get install -y ffmpeg) || true
+
 STACKS=("${@:-whisper qwen voxtral nemo vllm}")
 [ $# -eq 0 ] && STACKS=(whisper qwen voxtral nemo vllm)
 
