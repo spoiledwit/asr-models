@@ -50,6 +50,9 @@ def load(model_id: str):
     log = open(log_path, "a")
     env = {**os.environ,
            "VLLM_DISABLE_COMPILE_CACHE": "1",
+           # old flashinfer builds don't recognize Blackwell (sm_120) and fail
+           # their arch check backwards; native sampling is fine for our use
+           "VLLM_USE_FLASHINFER_SAMPLER": "0",
            # venv bin first so pip-installed build tools (ninja for flashinfer
            # JIT) are found even though we never "activate" the venv
            "PATH": f"{VLLM_BIN.parent.resolve()}:{os.environ.get('PATH', '')}"}
