@@ -1,3 +1,5 @@
 -r base.txt
 torch
 nemo_toolkit[asr]>=2.0
+# newer pytorch-lightning removed NeptuneLogger, which NeMo still imports
+pytorch-lightning<2.6
