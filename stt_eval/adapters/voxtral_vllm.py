@@ -122,11 +122,16 @@ def _transcribe_one(handle, audio_path: str) -> str:
 
 
 def transcribe(handle, items: list[dict]) -> list[str]:
-    texts = []
-    for item in items:
+    # Concurrent websocket sessions — vLLM batches them server-side, so this
+    # multiplies throughput without multiple servers fighting over the port.
+    from concurrent.futures import ThreadPoolExecutor
+
+    def one(item):
         try:
-            texts.append(_transcribe_one(handle, item["audio_path"]))
+            return _transcribe_one(handle, item["audio_path"])
         except Exception as e:
             print(f"\n[voxtral-vllm] {item['audio_path']}: {e}")
-            texts.append("")
-    return texts
+            return ""
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        return list(pool.map(one, items))
