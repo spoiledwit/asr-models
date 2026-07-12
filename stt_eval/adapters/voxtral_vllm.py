@@ -48,7 +48,11 @@ def load(model_id: str):
     log_path = Path("logs/vllm-serve.log")
     log_path.parent.mkdir(exist_ok=True)
     log = open(log_path, "a")
-    env = {**os.environ, "VLLM_DISABLE_COMPILE_CACHE": "1"}
+    env = {**os.environ,
+           "VLLM_DISABLE_COMPILE_CACHE": "1",
+           # venv bin first so pip-installed build tools (ninja for flashinfer
+           # JIT) are found even though we never "activate" the venv
+           "PATH": f"{VLLM_BIN.parent.resolve()}:{os.environ.get('PATH', '')}"}
     proc = subprocess.Popen(
         [str(VLLM_BIN), "serve", model_id,
          "--tokenizer-mode", "mistral",
