@@ -6,5 +6,8 @@
 # reinstall matched to the pod's driver (check `nvidia-smi` CUDA version):
 #   .venvs/vllm/bin/pip install uv
 #   .venvs/vllm/bin/uv pip install -U vllm --torch-backend=cu128 --python .venvs/vllm/bin/python
-vllm
+# Pinned: 0.24.0 is the version verified to serve Voxtral Realtime; the next
+# release crashed at startup in this model's warmup (zero multimodal embeddings).
+vllm==0.24.0
 mistral-common[audio]>=1.9.0
+ninja
