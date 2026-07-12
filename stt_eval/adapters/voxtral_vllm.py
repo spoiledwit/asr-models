@@ -56,7 +56,10 @@ def load(model_id: str):
     proc = subprocess.Popen(
         [str(VLLM_BIN), "serve", model_id,
          "--tokenizer-mode", "mistral",
-         "--compilation_config", '{"cudagraph_mode": "PIECEWISE"}',
+         # vLLM's own realtime examples serve this model with --enforce-eager;
+         # the compiled/cudagraph path produced empty transcripts (model consumed
+         # audio frames but every delta decoded to "").
+         "--enforce-eager",
          "--port", str(PORT),
          # modest slice so parallel evals on the same GPU keep working
          "--gpu-memory-utilization", "0.35",
@@ -84,6 +87,9 @@ def _transcribe_one(handle, audio_path: str) -> str:
 
     text_parts = []
     with connect(f"ws://127.0.0.1:{PORT}/v1/realtime", max_size=None) as ws:
+        created = json.loads(ws.recv(timeout=30))  # wait for session.created
+        if created.get("type") != "session.created":
+            raise RuntimeError(f"unexpected first event: {created}")
         ws.send(json.dumps({"type": "session.update", "model": handle["model"]}))
         ws.send(json.dumps({"type": "input_audio_buffer.commit"}))
         for i in range(0, len(pcm16), CHUNK_BYTES):
