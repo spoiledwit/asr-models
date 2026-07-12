@@ -86,6 +86,12 @@ def _transcribe_one(handle, audio_path: str) -> str:
         import librosa
 
         audio = librosa.resample(audio, orig_sr=sr, target_sr=16000)
+    # Peak-normalize: the realtime model's VAD gates near-silent recordings
+    # (FLEURS has clips peaking at ~0.008) and returns empty transcripts.
+    # Adds no information — equivalent to the AGC any voice pipeline runs.
+    peak = np.abs(audio).max()
+    if 0 < peak < 0.3:
+        audio = audio * (0.7 / peak)
     pcm16 = (np.clip(audio, -1, 1) * 32767).astype(np.int16).tobytes()
 
     text_parts = []
