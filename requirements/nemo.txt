@@ -1,5 +1,8 @@
 -r base.txt
 torch
+# needs a recent release: canary-1b-v2 requires the 'canary2' prompt formatter
 nemo_toolkit[asr]>=2.0
 # newer pytorch-lightning removed NeptuneLogger, which NeMo still imports
 pytorch-lightning<2.6
+# NeMo's audio loader still uses np.sctypes, removed in NumPy 2
+numpy<2
