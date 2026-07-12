@@ -31,7 +31,7 @@ def transcribe(handle, items: list[dict]) -> list[str]:
         inputs = processor.apply_chat_template(
             conversation, add_generation_prompt=True,
             return_tensors="pt", sampling_rate=16000,
-        ).to(model.device)
+        ).to(model.device, torch.bfloat16)  # cast float features to model dtype
         outputs = model.generate(**inputs, max_new_tokens=256)
         new_tokens = outputs[:, inputs["input_ids"].shape[1]:]
         texts.append(tokenizer.batch_decode(new_tokens, skip_special_tokens=True)[0].strip())
